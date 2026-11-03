@@ -20,10 +20,7 @@ import com.garfiec.librechat.core.common.identity.cleanServerUrl
 import com.garfiec.librechat.core.model.auth.AuthCookies
 import com.garfiec.librechat.core.network.client.CookieHelper
 import com.garfiec.librechat.feature.auth.oauth.SSO_ANDROID_USER_AGENT
-import com.garfiec.librechat.feature.auth.oauth.SsoNavigationDecision
-import com.garfiec.librechat.feature.auth.oauth.SsoNavigationGate
 import com.garfiec.librechat.feature.auth.oauth.extractAuthCookies
-import com.garfiec.librechat.feature.auth.oauth.extractQueryParameter
 import com.garfiec.librechat.feature.auth.oauth.extractRefreshTokenFromCookies
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -40,19 +37,15 @@ private fun expiredCookie(serverUrl: String, name: String): String {
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-actual fun SsoWebView(
+actual fun WebLoginWebView(
     serverUrl: String,
-    provider: String,
     onTokenCapture: (AuthCookies) -> Unit,
-    onOAuthError: (String?) -> Unit,
     onCaptureFail: () -> Unit,
     modifier: Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val currentOnTokenCapture by rememberUpdatedState(onTokenCapture)
-    val currentOnOAuthError by rememberUpdatedState(onOAuthError)
     val currentOnCaptureFail by rememberUpdatedState(onCaptureFail)
-    val gate = remember(serverUrl, provider) { SsoNavigationGate(serverUrl, provider) }
     val serverHost = remember(serverUrl) { Uri.parse(serverUrl).host.orEmpty() }
 
     AndroidView(
@@ -60,8 +53,8 @@ actual fun SsoWebView(
         factory = { context ->
             WebView(context).apply {
                 // Without explicit MATCH_PARENT, Chromium resolves CSS `100vh` to 0 here, and any
-                // provider page that centres itself in a viewport-height box (Pocket ID) collapses
-                // to the top of the screen, clipped.
+                // login page that centres itself in a viewport-height box collapses to the top of
+                // the screen, clipped.
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -75,63 +68,42 @@ actual fun SsoWebView(
                 // re-enter here while the first dispatch is on the stack.
                 var finished = false
 
-                fun finish(view: WebView, errorCode: String?) {
+                fun finish(view: WebView) {
                     if (finished) return
                     finished = true
                     view.stopLoading()
                     scope.launch {
                         val cookies = CookieManager.getInstance()
                         var captured: AuthCookies? = null
+                        // CookieManager can lag the Set-Cookie behind the navigation, hence the
+                        // second read; see the iOS side's COOKIE_READ_ATTEMPTS for the same reason.
                         repeat(2) { attempt ->
-                            if (captured == null || (provider == "openid" && captured?.openId == null)) {
+                            if (captured == null) {
                                 if (attempt > 0) delay(150L)
                                 captured = extractAuthCookies(cookies.getCookie(serverUrl))
                             }
                         }
                         // The complete bundle is copied before clearing the WebView's auth cookies.
                         view.loadUrl("about:blank")
-                        when {
-                            captured != null -> {
-                                CookieHelper.authCookieNames.forEach { name ->
-                                    cookies.setCookie(serverUrl, expiredCookie(serverUrl, name))
-                                }
-                                currentOnTokenCapture(checkNotNull(captured))
+                        if (captured != null) {
+                            CookieHelper.authCookieNames.forEach { name ->
+                                cookies.setCookie(serverUrl, expiredCookie(serverUrl, name))
                             }
-                            errorCode != null -> currentOnOAuthError(errorCode)
-                            else -> currentOnCaptureFail()
+                            currentOnTokenCapture(checkNotNull(captured))
+                        } else {
+                            currentOnCaptureFail()
                         }
                     }
                 }
 
                 webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(
-                        view: WebView,
-                        request: WebResourceRequest,
-                    ): Boolean {
-                        if (!request.isForMainFrame) return false
-                        val url = request.url.toString()
-                        if (gate.decide(url) != SsoNavigationDecision.STOP) return false
-                        finish(view, extractQueryParameter(url, "error"))
-                        return true
-                    }
-
-                    // Arms the gate for anything shouldOverrideUrlLoading misses, but it does NOT
-                    // rescue the POST providers: Chromium delivers this once per COMMITTED
-                    // navigation with the FINAL url, and Apple's and SAML's form_post callbacks
-                    // answer with a 302, so the callback url itself never commits and is never
-                    // seen here either. What ends those round-trips is captureIfTokenPresent at
-                    // the commit of the redirect target — the post-callback page IS fetched, and
-                    // only finish()'s stopLoading beats its scripts to the refresh endpoint.
-                    // Arming from shouldInterceptRequest (which does see POST main-frame requests,
-                    // off the UI thread, so callbackSeen would need to be @Volatile) would close
-                    // it properly; that wants an Apple device to verify.
+                    // The server's login page sets the token by fetch or callback redirect, then keeps
+                    // navigating inside its own SPA — there is no fixed callback URL to gate on. The
+                    // cookie itself is the finish line: checked at every committed navigation, it stops
+                    // the round-trip the moment it exists, and stopLoading beats the page's own
+                    // refresh rotation the same way the provider flows' post-callback race is won.
                     override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
                         super.doUpdateVisitedHistory(view, url, isReload)
-                        if (finished || url.startsWith("about:")) return
-                        if (gate.decide(url) == SsoNavigationDecision.STOP) {
-                            finish(view, extractQueryParameter(url, "error"))
-                            return
-                        }
                         captureIfTokenPresent(view, url)
                     }
 
@@ -142,25 +114,24 @@ actual fun SsoWebView(
 
                     // A main-frame load that never arrives ends the round-trip just as surely as
                     // one that does, and nothing else would report it: no navigation follows, so
-                    // neither the gate nor the cookie probe ever fires again. Without these the
-                    // screen keeps a dead Chromium error page with no spinner and no error pane —
-                    // offline, DNS/TLS failure, a provider redirect to a scheme WebView cannot
-                    // open (intent://, market://), or a 404 because the server has no such
-                    // provider configured. finish() still reads the jar first, so a failure that
-                    // lands after the callback already set the cookie is a capture, not a loss.
+                    // the cookie probe never fires again. Without these the screen keeps a dead
+                    // Chromium error page with no spinner and no error pane — offline, DNS/TLS
+                    // failure, or a 404 (a server with no /login route at all). finish() still
+                    // reads the jar first, so a failure that lands after the cookie was already
+                    // set is a capture, not a loss.
                     override fun onReceivedError(
                         view: WebView,
                         request: WebResourceRequest,
                         error: WebResourceError,
                     ) {
                         super.onReceivedError(view, request, error)
-                        if (request.isForMainFrame) finish(view, null)
+                        if (request.isForMainFrame) finish(view)
                     }
 
                     // Restricted to the server's own host, unlike onReceivedError. A status code
                     // is flow-meaningful at an identity provider — a 401 carrying a login page is
-                    // an ordinary step — so only OUR end returning one (no such provider
-                    // configured, reverse proxy not routing /oauth) is a dead end worth reporting.
+                    // an ordinary step — so only OUR end returning one (no /login route, reverse
+                    // proxy not routing) is a dead end worth reporting.
                     override fun onReceivedHttpError(
                         view: WebView,
                         request: WebResourceRequest,
@@ -169,16 +140,14 @@ actual fun SsoWebView(
                         super.onReceivedHttpError(view, request, errorResponse)
                         if (!request.isForMainFrame) return
                         if (!request.url.host.equals(serverHost, ignoreCase = true)) return
-                        finish(view, null)
+                        finish(view)
                     }
 
-                    // Second, independent trigger. The gate's prefix match is defeated by a proxy
-                    // that rewrites the origin, so a cookie that is simply there still wins.
                     private fun captureIfTokenPresent(view: WebView, url: String) {
                         if (finished || url.startsWith("about:")) return
                         val cookies = CookieManager.getInstance().getCookie(serverUrl)
                         if (extractRefreshTokenFromCookies(cookies) != null) {
-                            finish(view, null)
+                            finish(view)
                         }
                     }
                 }
@@ -186,17 +155,13 @@ actual fun SsoWebView(
                 val cookies = CookieManager.getInstance()
                 cookies.setAcceptCookie(true)
                 cookies.setAcceptThirdPartyCookies(this, true)
-                val startUrl = "${cleanServerUrl(serverUrl)}/oauth/$provider"
+                val startUrl = "${cleanServerUrl(serverUrl)}/login"
                 // The load is issued from inside the clear's callback, because removeAllCookies is
                 // asynchronous and that ordering is the only thing keeping a stale token from being
-                // read back before the round-trip has even reached the provider.
-                //
-                // The whole jar, not just the server's refreshToken: the provider's own session
-                // cookie is process-global and survives our sign-out, so leaving it lets the flow
-                // re-select whoever was last signed in at the provider and complete as them with no
-                // chooser and no error. Nothing else in this jar holds a session — the chat
-                // WebViews render vendored local assets — and AndroidSwitchCacheCleaner already
-                // wipes it whole on every account switch for the same reason.
+                // read back before the login page has even loaded. (The whole jar, not just the
+                // server's refreshToken: a provider's session cookie is process-global and would
+                // re-select whoever was last signed in there. AndroidSwitchCacheCleaner wipes it
+                // whole on account switches for the same reason.)
                 cookies.removeAllCookies { loadUrl(startUrl) }
             }
         },

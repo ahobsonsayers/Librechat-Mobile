@@ -73,10 +73,6 @@ object CookieHelper {
         if (kept.isNotEmpty() || added.isNotEmpty()) headers.append(HttpHeaders.Cookie, (kept + added).joinToString("; "))
     }
 
-    fun extractRefreshToken(headers: Headers): String? {
-        return responseCookies(headers).firstOrNull { it.name == "refreshToken" }?.value
-    }
-
     // Foundation combines repeated Set-Cookie fields. Ktor's parser separates them while
     // retaining commas inside Expires attributes and the default RAW cookie encoding.
     private fun responseCookies(responseHeaders: Headers) = object : HttpMessage {

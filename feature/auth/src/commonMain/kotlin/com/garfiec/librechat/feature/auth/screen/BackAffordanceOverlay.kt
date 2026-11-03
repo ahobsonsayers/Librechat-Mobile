@@ -19,7 +19,7 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Top-start back affordance shown only in the add-account variant of the auth screens (the
  * onboarding roots pass a null [onBack], so nothing renders there). Popping the pending add
- * route cancels the flow. Shared by [LoginScreen] and [ServerUrlScreen] so the padding, icon,
+ * route cancels the flow. Shared by [WebLoginScreen] and [ServerUrlScreen] so the padding, icon,
  * hit target, and accessibility label stay in one place.
  */
 @Composable

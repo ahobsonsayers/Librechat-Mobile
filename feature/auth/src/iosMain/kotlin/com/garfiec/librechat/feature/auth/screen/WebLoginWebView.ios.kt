@@ -9,12 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import com.garfiec.librechat.core.common.identity.cleanServerUrl
 import com.garfiec.librechat.core.model.auth.AuthCookies
-import com.garfiec.librechat.feature.auth.oauth.SsoNavigationDecision
-import com.garfiec.librechat.feature.auth.oauth.SsoNavigationGate
 import com.garfiec.librechat.feature.auth.oauth.cookieAppliesTo
 import com.garfiec.librechat.feature.auth.oauth.cookiePathAppliesTo
 import com.garfiec.librechat.feature.auth.oauth.extractAuthCookies
-import com.garfiec.librechat.feature.auth.oauth.extractQueryParameter
 import com.garfiec.librechat.feature.auth.oauth.safariApplicationName
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.ObjCSignatureOverride
@@ -33,8 +30,6 @@ import platform.Foundation.NSURLRequest
 import platform.Foundation.timeIntervalSinceNow
 import platform.UIKit.UIDevice
 import platform.WebKit.WKNavigation
-import platform.WebKit.WKNavigationAction
-import platform.WebKit.WKNavigationActionPolicy
 import platform.WebKit.WKNavigationDelegateProtocol
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
@@ -43,7 +38,7 @@ import platform.darwin.NSObject
 
 /**
  * WKHTTPCookieStore reads cross-process and can lag a Set-Cookie the navigation has already
- * committed. Because the redirect is cancelled rather than raced, there is time to look twice.
+ * committed; the poll reads twice to absorb that.
  */
 private const val COOKIE_READ_ATTEMPTS = 2
 private const val COOKIE_RETRY_DELAY_MS = 150L
@@ -51,17 +46,13 @@ private const val COOKIE_READ_TIMEOUT_MS = 2_000L
 
 /**
  * `NSURLErrorCancelled`. WebKit reports it whenever a provisional navigation is superseded — a
- * redirect starting the next one, or this delegate's own `stopLoading()` — which is routine in an
- * OAuth chain rather than a failure. Reporting it would abort sign-ins that are going fine.
- *
- * The policy cancel in `decidePolicyForNavigationAction` is a different error (`WebKitErrorDomain`
- * 102) and needs no code of its own: that path latches `finished` before WebKit reports anything.
+ * redirect starting the next one, or this delegate's own `stopLoading()` — which is routine during
+ * a sign-in rather than a failure. Reporting it would abort sign-ins that are going fine.
  */
 private const val NSURL_ERROR_CANCELLED = -999L
 
-private class SsoCallbacks(
+private class WebLoginCallbacks(
     val onTokenCapture: (AuthCookies) -> Unit,
-    val onOAuthError: (String?) -> Unit,
     val onCaptureFail: () -> Unit,
 )
 
@@ -74,40 +65,16 @@ private class SsoCallbacks(
  * WebKit's callback and not in composition — captured lambdas would be frozen at first composition.
  */
 @OptIn(ExperimentalForeignApi::class)
-private class SsoNavigationDelegate(
+private class WebLoginNavigationDelegate(
     serverUrl: String,
-    provider: String,
     private val scope: CoroutineScope,
-    private val callbacks: State<SsoCallbacks>,
+    private val callbacks: State<WebLoginCallbacks>,
 ) : NSObject(), WKNavigationDelegateProtocol {
 
-    private val gate = SsoNavigationGate(serverUrl, provider)
-    private val provider = provider
     private val serverHost: String = NSURL.URLWithString(serverUrl)?.host.orEmpty()
     private val cookiePath = NSURL.URLWithString("${cleanServerUrl(serverUrl)}/api/auth/refresh")?.path ?: "/"
     private val secureServer = serverUrl.startsWith("https://", ignoreCase = true)
     private var finished = false
-
-    override fun webView(
-        webView: WKWebView,
-        decidePolicyForNavigationAction: WKNavigationAction,
-        decisionHandler: (WKNavigationActionPolicy) -> Unit,
-    ) {
-        val action = decidePolicyForNavigationAction
-        val url = action.request.URL?.absoluteString
-        if (url == null || action.targetFrame?.mainFrame != true) {
-            decisionHandler(WKNavigationActionPolicy.WKNavigationActionPolicyAllow)
-            return
-        }
-        if (gate.decide(url) != SsoNavigationDecision.STOP) {
-            decisionHandler(WKNavigationActionPolicy.WKNavigationActionPolicyAllow)
-            return
-        }
-        // Cancelling here means the post-callback page is never fetched, so the web app's
-        // silentRefresh() cannot rotate the token out from under us.
-        decisionHandler(WKNavigationActionPolicy.WKNavigationActionPolicyCancel)
-        finish(webView, extractQueryParameter(url, "error"))
-    }
 
     @ObjCSignatureOverride
     override fun webView(webView: WKWebView, didFinishNavigation: WKNavigation?) {
@@ -122,10 +89,10 @@ private class SsoNavigationDelegate(
         captureIfTokenPresent(webView)
     }
 
-    // A main-frame load that never arrives ends the round-trip too, and nothing else would report
-    // it: no navigation follows, so neither the gate nor the cookie probe fires again, and the
-    // screen keeps a dead WebKit error page with no spinner and no error pane. finish() still
-    // reads the jar first, so a failure landing after the callback set the cookie is a capture.
+    // A main-frame load that never arrives ends the sign-in too, and nothing else would report it:
+    // no navigation follows, so the cookie probe fires again never, and the screen keeps a dead
+    // WebKit error page with no spinner and no error pane. finish() still reads the jar first, so
+    // a failure landing after the server set the cookie is a capture.
     @ObjCSignatureOverride
     override fun webView(
         webView: WKWebView,
@@ -142,14 +109,14 @@ private class SsoNavigationDelegate(
 
     private fun failLoad(webView: WKWebView, error: NSError) {
         if (error.code == NSURL_ERROR_CANCELLED) return
-        finish(webView, null)
+        finish(webView)
     }
 
     /**
-     * Second, independent trigger: a proxy that rewrites the origin defeats the gate's prefix.
-     *
-     * This and [finish] both read `finished` around a suspension point, but every one of them
-     * runs on the main dispatcher, so they interleave sequentially rather than racing.
+     * The server's login page sets the cookie by fetch or callback redirect, then keeps navigating
+     * inside its own SPA — there is no fixed callback URL to gate on. The cookie itself is the
+     * finish line: checked at every committed navigation and redirect, it ends the round-trip the
+     * moment it exists.
      */
     private fun captureIfTokenPresent(webView: WKWebView) {
         if (finished) return
@@ -162,15 +129,18 @@ private class SsoNavigationDelegate(
         }
     }
 
-    private fun finish(webView: WKWebView, errorCode: String?) {
+    private fun finish(webView: WKWebView) {
         if (finished) return
         finished = true
         webView.stopLoading()
+        // A load that never arrived usually carries no capture: read the jar once more anyway so
+        // a failure landing after the server already set the cookie is a capture, not a loss,
+        // then report the dead end so the screen shows its error pane instead of sitting on a
+        // blank WebView forever.
         scope.launch {
             val token = readAuthCookies(webView, attempts = COOKIE_READ_ATTEMPTS)
             when {
                 token != null -> callbacks.value.onTokenCapture(token)
-                errorCode != null -> callbacks.value.onOAuthError(errorCode)
                 else -> callbacks.value.onCaptureFail()
             }
         }
@@ -185,9 +155,7 @@ private class SsoNavigationDelegate(
                     .getAllCookies { cookies.complete(it) }
                 val fetched = withTimeoutOrNull(COOKIE_READ_TIMEOUT_MS) { cookies.await() }
                 val captured = authCookiesFrom(fetched)
-                if (captured != null && (provider != "openid" || captured.openId != null || attempt == attempts - 1)) {
-                    return@withContext captured
-                }
+                if (captured != null) return@withContext captured
             }
             null
         }
@@ -206,20 +174,18 @@ private class SsoNavigationDelegate(
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-actual fun SsoWebView(
+actual fun WebLoginWebView(
     serverUrl: String,
-    provider: String,
     onTokenCapture: (AuthCookies) -> Unit,
-    onOAuthError: (String?) -> Unit,
     onCaptureFail: () -> Unit,
     modifier: Modifier,
 ) {
     val callbacks = rememberUpdatedState(
-        SsoCallbacks(onTokenCapture, onOAuthError, onCaptureFail),
+        WebLoginCallbacks(onTokenCapture, onCaptureFail),
     )
     val scope = rememberCoroutineScope()
-    val delegate = remember(serverUrl, provider) {
-        SsoNavigationDelegate(serverUrl, provider, scope, callbacks)
+    val delegate = remember(serverUrl) {
+        WebLoginNavigationDelegate(serverUrl, scope, callbacks)
     }
 
     UIKitView(
@@ -238,7 +204,7 @@ actual fun SsoWebView(
             }
             val webView = WKWebView(frame = cValue { }, configuration = config)
             webView.navigationDelegate = delegate
-            val startUrl = "${cleanServerUrl(serverUrl)}/oauth/$provider"
+            val startUrl = "${cleanServerUrl(serverUrl)}/login"
             val url = NSURL.URLWithString(startUrl)
             if (url != null) {
                 webView.loadRequest(NSURLRequest(uRL = url))

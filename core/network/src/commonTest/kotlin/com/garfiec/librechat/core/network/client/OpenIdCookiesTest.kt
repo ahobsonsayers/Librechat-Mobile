@@ -52,7 +52,6 @@ class OpenIdCookiesTest {
                 "openid_user_id=next%2Bmarker; Path=/; HttpOnly",
         )
         assertEquals(AuthCookies("next+%2F==", OpenIdMarkers("next%2Bmarker")), CookieHelper.update(original, headers))
-        assertEquals("next+%2F==", CookieHelper.extractRefreshToken(headers))
     }
 
     @Test

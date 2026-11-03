@@ -1,25 +1,18 @@
 package com.garfiec.librechat.core.data.repository
 
 import com.garfiec.librechat.core.common.result.Result
-import com.garfiec.librechat.core.model.LoginOutcome
 import com.garfiec.librechat.core.model.User
-import com.garfiec.librechat.core.model.VerifyTwoFactorOutcome
 import com.garfiec.librechat.core.model.auth.AuthCookies
 import com.garfiec.librechat.core.model.response.BackupCodesResponse
 import com.garfiec.librechat.core.model.response.TwoFactorSetupResponse
 
 interface AuthRepository {
-    suspend fun login(email: String, password: String): Result<LoginOutcome>
-    suspend fun loginWithOAuthToken(cookies: AuthCookies): Result<User>
-
     /**
-     * Verifies a 2FA temp-token session. Returns a closed [VerifyTwoFactorOutcome] (not a
-     * [Result]) — this repository owns the backend's error contract and classifies every
-     * failure exactly once, so callers get an exhaustive `when` instead of re-deriving
-     * semantics from status codes and exception types.
+     * Exchanges the cookies captured from the server's web sign-in for a full session: the refresh
+     * endpoint turns the `refreshToken` cookie into an access token, then the user profile is
+     * fetched and the account established. Provider-agnostic — the web page chose the method.
      */
-    suspend fun verifyTwoFactor(tempToken: String, code: String, isBackupCode: Boolean = false): VerifyTwoFactorOutcome
-    suspend fun register(name: String, email: String, username: String, password: String): Result<Unit>
+    suspend fun loginWithOAuthToken(cookies: AuthCookies): Result<User>
     suspend fun logout(): Result<Unit>
 
     /**
@@ -45,6 +38,4 @@ interface AuthRepository {
     suspend fun confirmTwoFactor(code: String): Result<Unit>
     suspend fun disableTwoFactor(token: String? = null, backupCode: String? = null): Result<Unit>
     suspend fun regenerateBackupCodes(token: String? = null, backupCode: String? = null): Result<BackupCodesResponse>
-    suspend fun requestPasswordReset(email: String): Result<Unit>
-    suspend fun resetPassword(userId: String, token: String, password: String, confirmPassword: String): Result<Unit>
 }

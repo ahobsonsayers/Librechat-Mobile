@@ -25,7 +25,7 @@ import org.junit.Before
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class SsoLoginViewModelTest {
+class WebLoginViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
 
@@ -45,7 +45,7 @@ class SsoLoginViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun createViewModel() = SsoLoginViewModel(
+    private fun createViewModel() = WebLoginViewModel(
         authRepository = authRepository,
         serverDataStore = serverDataStore,
         accountSwitcher = accountSwitcher,
@@ -110,7 +110,7 @@ class SsoLoginViewModelTest {
         advanceUntilIdle()
 
         with(viewModel.uiState.value) {
-            assertThat(error).isEqualTo(SsoLoginError.Exchange("Refresh token expired"))
+            assertThat(error).isEqualTo(WebLoginError.Exchange("Refresh token expired"))
             assertThat(isLoggedIn).isFalse()
             assertThat(isLoading).isFalse()
         }
@@ -124,49 +124,27 @@ class SsoLoginViewModelTest {
         viewModel.onTokenCapture(AuthCookies(TOKEN))
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.error).isEqualTo(SsoLoginError.Exchange(null))
+        assertThat(viewModel.uiState.value.error).isEqualTo(WebLoginError.Exchange(null))
     }
 
     @Test
-    fun `an OAuth error fails without calling the repository`() = runTest {
-        val viewModel = createViewModel()
-
-        viewModel.onOAuthError("AUTH_FAILED")
-        advanceUntilIdle()
-
-        assertThat(viewModel.uiState.value.error).isEqualTo(SsoLoginError.Provider("AUTH_FAILED"))
-        coVerify(exactly = 0) { authRepository.loginWithOAuthToken(any()) }
-    }
-
-    @Test
-    fun `an OAuth error with no code still fails`() = runTest {
-        val viewModel = createViewModel()
-
-        viewModel.onOAuthError(null)
-        advanceUntilIdle()
-
-        assertThat(viewModel.uiState.value.error).isEqualTo(SsoLoginError.Provider(null))
-    }
-
-    @Test
-    fun `a capture failure fails without a code`() = runTest {
+    fun `a capture failure fails without calling the repository`() = runTest {
         val viewModel = createViewModel()
 
         viewModel.onCaptureFailed()
         advanceUntilIdle()
 
-        assertThat(viewModel.uiState.value.error).isEqualTo(SsoLoginError.CaptureFailed)
+        assertThat(viewModel.uiState.value.error).isEqualTo(WebLoginError.CaptureFailed)
         coVerify(exactly = 0) { authRepository.loginWithOAuthToken(any()) }
     }
 
     @Test
-    fun `a late error does not clobber a completed sign-in`() = runTest {
+    fun `a late capture failure does not clobber a completed sign-in`() = runTest {
         coEvery { authRepository.loginWithOAuthToken(AuthCookies(TOKEN)) } returns Result.Success(user)
         val viewModel = createViewModel()
 
         viewModel.onTokenCapture(AuthCookies(TOKEN))
         advanceUntilIdle()
-        viewModel.onOAuthError("LATE")
         viewModel.onCaptureFailed()
         advanceUntilIdle()
 

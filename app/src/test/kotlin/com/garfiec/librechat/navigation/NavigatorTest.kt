@@ -5,11 +5,10 @@ import androidx.navigation3.runtime.NavKey
 import com.garfiec.librechat.feature.agents.navigation.AgentDetail
 import com.garfiec.librechat.feature.agents.navigation.AgentEditorEdit
 import com.garfiec.librechat.feature.agents.navigation.AgentMarketplace
-import com.garfiec.librechat.feature.auth.navigation.AddAccountLogin
 import com.garfiec.librechat.feature.auth.navigation.AddAccountServerUrl
-import com.garfiec.librechat.feature.auth.navigation.Login
-import com.garfiec.librechat.feature.auth.navigation.Register
+import com.garfiec.librechat.feature.auth.navigation.AddAccountWebLogin
 import com.garfiec.librechat.feature.auth.navigation.ServerUrl
+import com.garfiec.librechat.feature.auth.navigation.WebLogin
 import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.NewChat
 import com.garfiec.librechat.feature.conversations.navigation.ProjectChats
@@ -53,7 +52,7 @@ class NavigatorTest {
 
     @Test
     fun `isInAuthFlow returns true for nested auth routes`() {
-        val navigator = createNavigator(ServerUrl, Login)
+        val navigator = createNavigator(ServerUrl, WebLogin)
         assertTrue(navigator.isInAuthFlow)
     }
 
@@ -269,17 +268,17 @@ class NavigatorTest {
     }
 
     @Test
-    fun `navigateToAuth clears stack and adds ServerUrl`() {
+    fun `navigateToAuth clears stack and adds WebLogin`() {
         val navigator = createNavigator(NewChat(), Chat("conv-1"), SettingsTabbed)
         navigator.navigateToAuth()
-        assertEquals(listOf(ServerUrl), navigator.backStack.toList())
+        assertEquals(listOf(WebLogin), navigator.backStack.toList())
     }
 
     @Test
     fun `navigateToAuth is a no-op deeper in the auth flow`() {
-        val navigator = createNavigator(ServerUrl, Login)
+        val navigator = createNavigator(ServerUrl, WebLogin)
         navigator.navigateToAuth()
-        assertEquals(listOf(ServerUrl, Login), navigator.backStack.toList())
+        assertEquals(listOf(ServerUrl, WebLogin), navigator.backStack.toList())
     }
 
     @Test
@@ -293,23 +292,14 @@ class NavigatorTest {
     fun `navigateToAuth still resets out of an add-account flow`() {
         // The add flow belongs to the session that just ended, and the nav host cancels the pending
         // add by watching these routes leave the stack — so the guard must not apply here.
-        val navigator = createNavigator(NewChat(), SettingsTabbed, AddAccountServerUrl, AddAccountLogin)
+        val navigator = createNavigator(NewChat(), SettingsTabbed, AddAccountServerUrl, AddAccountWebLogin)
         navigator.navigateToAuth()
-        assertEquals(listOf(ServerUrl), navigator.backStack.toList())
-    }
-
-    @Test
-    fun `navigateToAuth resets from a shared route stacked above an add-account login`() {
-        // Register/2FA/forgot-password are shared routes reached from add-mode login; they sit above
-        // an AddAccountLogin entry, so the whole stack has to be checked, not just the top.
-        val navigator = createNavigator(AddAccountServerUrl, AddAccountLogin, Register)
-        navigator.navigateToAuth()
-        assertEquals(listOf(ServerUrl), navigator.backStack.toList())
+        assertEquals(listOf(WebLogin), navigator.backStack.toList())
     }
 
     @Test
     fun `navigateToChat no-arg clears stack and adds NewChat()`() {
-        val navigator = createNavigator(ServerUrl, Login)
+        val navigator = createNavigator(ServerUrl, WebLogin)
         navigator.navigateToChat()
         assertEquals(listOf(NewChat()), navigator.backStack.toList())
     }

@@ -26,18 +26,18 @@ import com.garfiec.librechat.core.ui.components.AdaptiveCircularProgressIndicato
 import com.garfiec.librechat.feature.auth.diagnostics.DiagnosticLogLink
 import com.garfiec.librechat.feature.auth.resources.*
 import com.garfiec.librechat.feature.auth.resources.Res
-import com.garfiec.librechat.feature.auth.viewmodel.SsoLoginError
-import com.garfiec.librechat.feature.auth.viewmodel.SsoLoginViewModel
+import com.garfiec.librechat.feature.auth.viewmodel.WebLoginError
+import com.garfiec.librechat.feature.auth.viewmodel.WebLoginViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
+/** Signs in on the server's own web UI, loaded in a WebView — see [WebLogin] route. */
 @Composable
-fun SsoLoginScreen(
-    provider: String,
+fun WebLoginScreen(
     onLoginSuccess: () -> Unit,
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
-    viewModel: SsoLoginViewModel = koinViewModel(),
+    viewModel: WebLoginViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val currentOnLoginSuccess by rememberUpdatedState(onLoginSuccess)
@@ -49,14 +49,12 @@ fun SsoLoginScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        SsoWebView(
+        WebLoginWebView(
             serverUrl = viewModel.serverUrl,
-            provider = provider,
             onTokenCapture = viewModel::onTokenCapture,
-            onOAuthError = viewModel::onOAuthError,
             onCaptureFail = viewModel::onCaptureFailed,
-            // The provider's page knows nothing of the system bars or the back button, so the view itself
-            // stays clear of both.
+            // The server's page knows nothing of the system bars or the back button, so the view
+            // itself stays clear of both.
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing)
@@ -74,7 +72,7 @@ fun SsoLoginScreen(
 
         uiState.error?.let { error ->
             if (!uiState.isLoading) {
-                SsoErrorPane(error = error, onBack = onBack)
+                WebLoginErrorPane(error = error, onBack = onBack)
             }
         }
 
@@ -83,16 +81,15 @@ fun SsoLoginScreen(
 }
 
 @Composable
-private fun SsoErrorPane(error: SsoLoginError, onBack: (() -> Unit)?) {
+private fun WebLoginErrorPane(error: WebLoginError, onBack: (() -> Unit)?) {
     val fallback = stringResource(Res.string.sso_sign_in_failed)
     val message = when (error) {
-        is SsoLoginError.Exchange -> error.message ?: fallback
-        is SsoLoginError.Provider, SsoLoginError.CaptureFailed -> fallback
+        is WebLoginError.Exchange -> error.message ?: fallback
+        WebLoginError.CaptureFailed -> fallback
     }
-    val code = (error as? SsoLoginError.Provider)?.code
 
     // Opaque, because this pane is drawn OVER the WebView: Android leaves a blank white page
-    // under it and iOS leaves the stopped provider page. Without a surface behind it the
+    // under it and iOS leaves the stopped server page. Without a surface behind it the
     // onSurface-coloured text is white-on-white in dark theme — the reason for the failure is
     // simply unreadable — and on iOS the abandoned page underneath stays interactive.
     Surface(modifier = Modifier.fillMaxSize()) {
@@ -106,15 +103,6 @@ private fun SsoErrorPane(error: SsoLoginError, onBack: (() -> Unit)?) {
                     style = MaterialTheme.typography.bodyLarge,
                     textAlign = TextAlign.Center,
                 )
-                if (code != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = code,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center,
-                    )
-                }
                 Spacer(modifier = Modifier.height(16.dp))
                 AdaptiveButton(onClick = { onBack?.invoke() }) {
                     Text(stringResource(Res.string.back_to_sign_in))

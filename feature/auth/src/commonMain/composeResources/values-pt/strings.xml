@@ -10,79 +10,15 @@
     <string name="insecure_connection_message">Você está se conectando por HTTP. Suas credenciais de login e mensagens serão enviadas sem criptografia e poderão ser interceptadas por outras pessoas na rede.\n\nUse HTTP apenas para servidores de desenvolvimento local.</string>
     <string name="connect_anyway">Conectar mesmo assim</string>
     <string name="cancel">Cancelar</string>
-
-    <!-- Login -->
-    <string name="login_title">Entrar</string>
-    <string name="email_label">E-mail</string>
-    <string name="password_label">Senha</string>
-    <string name="continue_button">Continuar</string>
-    <string name="forgot_password">Esqueceu a senha?</string>
-    <string name="no_account_sign_up">Não tem uma conta? Cadastre-se</string>
-    <string name="or_continue_with">Ou continue com</string>
-
-    <!-- Register -->
-    <string name="register_title">Criar conta</string>
-    <string name="full_name_label">Nome completo</string>
-    <string name="username_label">Nome de usuário</string>
-    <string name="confirm_password_label">Confirmar senha</string>
-    <string name="sign_up">Cadastrar-se</string>
-    <string name="have_account_sign_in">Já tem uma conta? Entre</string>
-
-    <!-- Forgot Password -->
-    <string name="reset_password_title">Redefinir senha</string>
-    <string name="forgot_your_password">Esqueceu sua senha?</string>
-    <string name="enter_email_for_reset">Digite seu e-mail para receber um link de redefinição</string>
-    <string name="send_reset_link">Enviar link de redefinição</string>
-    <string name="check_your_email">Verifique seu e-mail</string>
-    <string name="reset_link_sent">Enviamos um link de redefinição de senha para %1$s</string>
-    <string name="back_to_sign_in">Voltar para entrar</string>
-
-    <!-- Reset Password -->
-    <string name="reset_password_screen_title">Redefinir senha</string>
-    <string name="password_reset_successful">Senha redefinida com sucesso</string>
-    <string name="password_reset_message">Sua senha foi atualizada. Agora você pode entrar com sua nova senha.</string>
-    <string name="set_new_password">Definir nova senha</string>
-    <string name="enter_new_password_hint">Digite sua nova senha abaixo</string>
-    <string name="new_password_label">Nova senha</string>
-    <string name="confirm_new_password_label">Confirmar nova senha</string>
-    <string name="reset_password_button">Redefinir senha</string>
-
-    <!-- Two-Factor -->
-    <string name="two_factor_title">Autenticação de dois fatores</string>
-    <string name="enter_verification_code">Digite o código de verificação</string>
-    <string name="enter_backup_code">Digite o código de backup</string>
-    <string name="authenticator_prompt">Digite o código de 6 dígitos do seu app autenticador</string>
-    <string name="backup_code_prompt">Digite um dos seus códigos de backup</string>
-    <string name="verify">Verificar</string>
-    <string name="use_authenticator_code">Usar código do autenticador</string>
-    <string name="use_backup_code">Usar código de backup</string>
-    <string name="backup_code_label">Código de backup</string>
-
-    <!-- Verify Email -->
-    <string name="verify_email_title">Verificar e-mail</string>
-    <string name="verification_link_sent">Enviamos um link de verificação para</string>
-    <string name="click_link_to_verify">Clique no link do e-mail para verificar sua conta.</string>
-    <string name="verification_email_sent">E-mail de verificação enviado!</string>
-    <string name="resend_verification_email">Reenviar e-mail de verificação</string>
-    <string name="resend_in_seconds">Reenviar em %1$ds</string>
-
-    <!-- Terms -->
-    <string name="terms_title">Termos de Serviço</string>
-    <string name="i_accept">Eu aceito</string>
-    <string name="retry">Tentar novamente</string>
-
+    <!-- Web login -->
+    <string name="sso_sign_in_failed">Falha ao entrar. Tente novamente.</string>
     <!-- Common -->
     <string name="back">Voltar</string>
-
-    <!-- Custom server headers (issue #287) -->
-    <string name="server_headers_advanced">Avançado</string>
-    <!-- SSO (in-app WebView) -->
-    <string name="sso_risk_title">Entrar em um navegador dentro do app?</string>
-    <string name="sso_risk_body">Alguns provedores, incluindo o Google, não oferecem suporte oficial a isso e podem bloquear a qualquer momento. Use por sua própria conta e risco.</string>
-    <string name="sso_sign_in_failed">Falha ao entrar. Tente novamente.</string>
+    <string name="back_to_sign_in">Voltar para entrar</string>
+    <!-- Diagnostics -->
     <string name="diagnostic_log_export">Exportar logs de diagnóstico</string>
     <string name="diagnostic_log_exported">Log exportado. Anexe-o ao relatar o problema.</string>
     <string name="diagnostic_log_failed">Não foi possível exportar o log.</string>
-    <string name="user_ca_notice">O certificado deste servidor é confiável por meio de uma autoridade certificadora instalada neste dispositivo, e não de uma integrada ao Android. Continue apenas se você ou sua organização a instalou.</string>
-    <string name="continue_with_provider">Continuar com %1$s</string>
+    <!-- Custom server headers (issue #287) -->
+    <string name="server_headers_advanced">Avançado</string>
 </resources>

@@ -12,6 +12,7 @@ import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.garfiec.librechat.feature.auth.navigation.AuthRoute
 import com.garfiec.librechat.feature.auth.navigation.ServerUrl
+import com.garfiec.librechat.feature.auth.navigation.WebLogin
 import com.garfiec.librechat.feature.auth.navigation.isAddAccountFlowRoute
 import com.garfiec.librechat.feature.chat.navigation.Chat
 import com.garfiec.librechat.feature.chat.navigation.NewChat
@@ -221,10 +222,11 @@ class Navigator(
     /**
      * Clear back stack and navigate to auth (session expiry / logout).
      *
-     * No-ops when already in the auth flow, matching the dedupe its siblings above do. A dead session
-     * is reported by more than one caller (a cold start fans out several requests and each 401 settles
-     * independently), and a straggler landing after the user has moved on to Login/Register/2FA would
-     * otherwise reset them to [ServerUrl] and discard what they had typed.
+     * No-ops when already in the auth flow, matching the dedupe its siblings do. A dead session is
+     * reported by more than one caller (a cold start fans out several requests and each 401 settles
+     * independently), and a straggler landing after the user has moved on would otherwise reset them
+     * mid-flow. The server URL is already stored by the time a session can expire, so the landing
+     * skips URL entry and goes straight to the server's web login — see [WebLogin].
      */
     fun navigateToAuth() {
         // An add-account flow is not "already at the destination": it belongs to the session that
@@ -233,7 +235,7 @@ class Navigator(
         if (isInAuthFlow && backStack.none { it.isAddAccountFlowRoute }) return
         changing {
             backStack.clear()
-            backStack.add(ServerUrl)
+            backStack.add(WebLogin)
         }
     }
 

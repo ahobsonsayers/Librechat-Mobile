@@ -22,7 +22,6 @@ import com.garfiec.librechat.core.data.datastore.DrawerPinsStore
 import com.garfiec.librechat.core.data.datastore.PreferenceStore
 import com.garfiec.librechat.core.data.datastore.ServerDataStore
 import com.garfiec.librechat.core.data.datastore.SettingsDataStore
-import com.garfiec.librechat.core.data.datastore.SsoRiskDataStore
 import com.garfiec.librechat.core.data.datastore.ThemeDataStore
 import com.garfiec.librechat.core.data.prefetch.AttachmentWarmer
 import com.garfiec.librechat.core.data.prefetch.PrefetchController
@@ -214,7 +213,6 @@ class KoinGraphVerificationTest {
             SettingsDataStore::class,
             PreferenceStore::class,
             DrawerPinsStore::class,
-            SsoRiskDataStore::class,
             ThemeDataStore::class,
             ConversationWebSearchStore::class,
             AgentRepository::class,

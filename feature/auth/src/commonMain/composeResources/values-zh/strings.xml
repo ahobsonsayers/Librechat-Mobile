@@ -10,79 +10,15 @@
     <string name="insecure_connection_message">你正在通过 HTTP 连接。你的登录凭据和消息将以未加密方式发送，可能被网络上的其他人截获。\n\n仅在本地开发服务器上使用 HTTP。</string>
     <string name="connect_anyway">仍然连接</string>
     <string name="cancel">取消</string>
-
-    <!-- Login -->
-    <string name="login_title">登录</string>
-    <string name="email_label">电子邮箱</string>
-    <string name="password_label">密码</string>
-    <string name="continue_button">继续</string>
-    <string name="forgot_password">忘记密码？</string>
-    <string name="no_account_sign_up">还没有账户？注册</string>
-    <string name="or_continue_with">或使用以下方式继续</string>
-
-    <!-- Register -->
-    <string name="register_title">创建账户</string>
-    <string name="full_name_label">全名</string>
-    <string name="username_label">用户名</string>
-    <string name="confirm_password_label">确认密码</string>
-    <string name="sign_up">注册</string>
-    <string name="have_account_sign_in">已有账户？登录</string>
-
-    <!-- Forgot Password -->
-    <string name="reset_password_title">重置密码</string>
-    <string name="forgot_your_password">忘记密码了？</string>
-    <string name="enter_email_for_reset">输入你的电子邮箱以接收重置链接</string>
-    <string name="send_reset_link">发送重置链接</string>
-    <string name="check_your_email">请查收你的邮箱</string>
-    <string name="reset_link_sent">我们已向 %1$s 发送了密码重置链接</string>
-    <string name="back_to_sign_in">返回登录</string>
-
-    <!-- Reset Password -->
-    <string name="reset_password_screen_title">重置密码</string>
-    <string name="password_reset_successful">密码重置成功</string>
-    <string name="password_reset_message">你的密码已更新。现在可以使用新密码登录了。</string>
-    <string name="set_new_password">设置新密码</string>
-    <string name="enter_new_password_hint">在下方输入你的新密码</string>
-    <string name="new_password_label">新密码</string>
-    <string name="confirm_new_password_label">确认新密码</string>
-    <string name="reset_password_button">重置密码</string>
-
-    <!-- Two-Factor -->
-    <string name="two_factor_title">两步验证</string>
-    <string name="enter_verification_code">输入验证码</string>
-    <string name="enter_backup_code">输入备用码</string>
-    <string name="authenticator_prompt">输入身份验证器应用中的 6 位验证码</string>
-    <string name="backup_code_prompt">输入你的某个备用码</string>
-    <string name="verify">验证</string>
-    <string name="use_authenticator_code">使用身份验证器验证码</string>
-    <string name="use_backup_code">使用备用码</string>
-    <string name="backup_code_label">备用码</string>
-
-    <!-- Verify Email -->
-    <string name="verify_email_title">验证电子邮箱</string>
-    <string name="verification_link_sent">我们已发送验证链接至</string>
-    <string name="click_link_to_verify">点击邮件中的链接以验证你的账户。</string>
-    <string name="verification_email_sent">验证邮件已发送！</string>
-    <string name="resend_verification_email">重新发送验证邮件</string>
-    <string name="resend_in_seconds">%1$d 秒后可重新发送</string>
-
-    <!-- Terms -->
-    <string name="terms_title">服务条款</string>
-    <string name="i_accept">我接受</string>
-    <string name="retry">重试</string>
-
+    <!-- Web login -->
+    <string name="sso_sign_in_failed">登录失败，请重试。</string>
     <!-- Common -->
     <string name="back">返回</string>
-
-    <!-- Custom server headers (issue #287) -->
-    <string name="server_headers_advanced">高级</string>
-    <!-- SSO (in-app WebView) -->
-    <string name="sso_risk_title">在应用内浏览器中登录？</string>
-    <string name="sso_risk_body">包括 Google 在内的部分服务商并不正式支持这种方式，并可能随时封锁。请自行承担风险。</string>
-    <string name="sso_sign_in_failed">登录失败，请重试。</string>
+    <string name="back_to_sign_in">返回登录</string>
+    <!-- Diagnostics -->
     <string name="diagnostic_log_export">导出诊断日志</string>
     <string name="diagnostic_log_exported">日志已导出。报告问题时请附上它。</string>
     <string name="diagnostic_log_failed">无法导出日志。</string>
-    <string name="user_ca_notice">此服务器的证书通过安装在此设备上的证书颁发机构获得信任，而非 Android 内置的证书颁发机构。仅当它是由您或您的组织安装时才继续。</string>
-    <string name="continue_with_provider">使用 %1$s 继续</string>
+    <!-- Custom server headers (issue #287) -->
+    <string name="server_headers_advanced">高级</string>
 </resources>
